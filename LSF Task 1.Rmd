@@ -1,0 +1,675 @@
+---
+title: "LSF Task 1"
+output: html_document
+date: "2025-08-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(scales) 
+library(patchwork)
+#library(countrycode)
+#library(rnaturalearth)
+library(sf)
+```
+
+```{r}
+#Original Data
+data1 <- read.csv("C:\\Users\\dilan\\Downloads\\Land_Use_cleaned.csv")
+glimpse(data1)
+
+#data
+data2 <- read.csv("C:\\Users\\dilan\\Downloads\\Macro_Indicators_cleaned.csv")
+data3 <- read.csv("C:\\Users\\dilan\\Downloads\\Value_Shares_by_Industry_and_Primary_Factors_cleaned.csv")
+```
+
+```{r}
+#Manipluated Data 1
+forest_data <- data1 %>%
+  filter(Item == "Forest land")
+
+agricultural_data <- data1 %>%
+  filter(Item == "Agricultural land", Element == "Area")
+```
+
+```{r}
+#Forest Data Plot
+# Plot each country in its own panel
+#ggplot(forest_data, aes(x = Year, y = Value)) +
+  #geom_line(color = "forestgreen", size = 1) +
+  #facet_wrap(~ Country, scales = "free_y") +
+  #labs(
+    #title = "Forest Area Trends by Country",
+    #x = "Year",
+    #y = "Forest Area (1000 ha)"
+ # ) +
+  #theme_minimal(base_size = 10) +
+  #theme(strip.text = element_text(size = 8))
+```
+
+```{r}
+# Anguilla doesn't have agricultural land
+# country_name <- "Anguilla"
+# 
+# # Filter for that country's agricultural land data
+# agri_country <- data1 %>%
+#   filter(Item == "Agricultural land", Element == "Area", Country == country_name)
+# 
+# # Plot
+# ggplot(agri_country, aes(x = Year, y = Value)) +
+#   geom_line(color = "sienna", size = 1.2) +
+#   labs(
+#     title = paste("Agricultural Land Area in", country_name),
+#     x = "Year",
+#     y = "Area (1000 ha)"
+#   ) +
+#   theme_minimal(base_size = 12)
+```
+
+```{r}
+# country_name <- "Antigua and Barbuda"
+# 
+# agri_country <- data1 %>%
+#   filter(Item == "Agricultural land", Element == "Area", Country == country_name)
+# 
+# ggplot(agri_country, aes(x = Year, y = Value)) +
+#   geom_line(color = "sienna", size = 1.2) +
+#   labs(
+#     title = paste("Agricultural Land Area in", country_name),
+#     x = "Year",
+#     y = "Area (1000 ha)"
+#   ) +
+#   scale_x_continuous(breaks = seq(min(agri_country$Year), max(agri_country$Year), by = 5)) +
+#   theme_minimal(base_size = 12)
+```
+
+```{r}
+library(tidyverse)
+
+# Filter agricultural land data
+agri_data <- data1 %>%
+  filter(Item == "Agricultural land", Element == "Area")
+
+# Get valid countries (excluding Anguilla by default since it has no data)
+valid_countries <- sort(unique(agri_data$Country))
+
+# Loop through and plot each country
+for (country in valid_countries) {
+  country_data <- agri_data %>%
+    filter(Country == country)
+  
+  # Skip if empty (safety check)
+  if (nrow(country_data) == 0) next
+  
+  # Create the plot
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "sienna", size = 1.2) +
+    labs(
+      title = paste("Agricultural Land Area in", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+```{r}
+# Filter for Value US$, 2015 prices
+macro_value <- data2 %>%
+  filter(Element == "Value US$, 2015 prices")
+
+# Get sorted list of countries
+macro_countries <- sort(unique(macro_value$Country))
+
+# Loop through countries and plot
+for (country in macro_countries) {
+  country_data <- macro_value %>%
+    filter(Country == country)
+  
+  if (nrow(country_data) == 0) next
+  
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "steelblue", size = 1.2) +
+    labs(
+      title = paste("Value US$, 2015 prices in", country),
+      x = "Year",
+      y = "Million USD (2015 prices)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    scale_y_continuous(labels = label_comma()) +  # ✅ No conflict now
+    theme_minimal(base_size = 12)
+  
+  print(p)
+}
+```
+```{r, fig.width=12}
+# Filter for the US$ ratio only
+ratio_usd <- data2 %>%
+  filter(Element == "Ratio of Value Added (Agriculture, Forestry and Fishing) US$")
+
+# Get sorted list of countries with data
+ratio_countries <- sort(unique(ratio_usd$Country))
+
+# Loop through countries and plot
+for (country in ratio_countries) {
+  country_data <- ratio_usd %>%
+    filter(Country == country)
+  
+  if (nrow(country_data) == 0) next
+  
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "forestgreen", size = 1.2) +
+    labs(
+      title = paste("Ratio of Value Added (Agriculture, Forestry, Fishing) to the Economy - US$ in", country),
+      x = "Year",
+      y = "Share of Economy (%)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    scale_y_continuous(labels = label_percent(scale = 1)) +  # Convert to percentage
+    theme_minimal(base_size = 12)
+  
+  print(p)
+}
+```
+
+```{r}
+# Filter for Agriculture, Forestry and Fishing + Value US$, 2015 prices
+factors_value <- data3 %>%
+  filter(Industry == "Agriculture, Forestry and Fishing",
+         Element == "Value US$, 2015 prices")
+
+# Get sorted list of countries
+factor_countries <- sort(unique(factors_value$Country))
+
+# Loop through countries and plot
+for (country in factor_countries) {
+  country_data <- factors_value %>%
+    filter(Country == country)
+  
+  if (nrow(country_data) == 0) next
+  
+  p <- ggplot(country_data, aes(x = Year, y = Value, color = Factor)) +
+    geom_line(size = 1.2) +
+    labs(
+      title = paste("Value US$, 2015 prices - Agriculture, Forestry & Fishing in", country),
+      x = "Year",
+      y = "Million USD (2015 prices)",
+      color = "Factor"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    scale_y_continuous(labels = label_comma()) +  # No scientific notation
+    theme_minimal(base_size = 12)
+  
+  print(p)
+}
+```
+
+```{r}
+# Filter for Agriculture, Forestry and Fishing + Primary Factors Total + Value US$, 2015 prices
+primary_factors_value <- data3 %>%
+  filter(Industry == "Agriculture, Forestry and Fishing",
+         Factor == "Primary Factors Total",
+         Element == "Value US$, 2015 prices")
+
+# Get sorted list of countries
+primary_factor_countries <- sort(unique(primary_factors_value$Country))
+
+# Loop through countries and plot
+for (country in primary_factor_countries) {
+  country_data <- primary_factors_value %>%
+    filter(Country == country)
+  
+  if (nrow(country_data) == 0) next
+  
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "darkorange", size = 1.2) +
+    labs(
+      title = paste("Primary Factors Total - Agriculture, Forestry & Fishing in", country),
+      x = "Year",
+      y = "Million USD (2015 prices)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    scale_y_continuous(labels = label_comma()) +  # formatted with commas
+    theme_minimal(base_size = 12)
+  
+  print(p)
+}
+```
+
+```{r, fig.width=12, fig.height=6}
+# Filter for Agricultural Land
+agri_land <- data1 %>%
+  filter(Item == "Agricultural land", Element == "Area")
+
+# Filter for Macro Indicator: Value US$, 2015 prices
+macro_value <- data2 %>%
+  filter(Element == "Value US$, 2015 prices")
+
+# Get countries in BOTH datasets
+common_countries <- intersect(unique(agri_land$Country), unique(macro_value$Country))
+common_countries <- sort(common_countries)
+
+# Loop through each country and plot
+for (country in common_countries) {
+  
+  land_plot <- agri_land %>%
+    filter(Country == country) %>%
+    ggplot(aes(x = Year, y = Value)) +
+    geom_line(color = "sienna", size = 1.2) +
+    labs(title = paste(country, "- Agricultural Land"),
+         x = "Year",
+         y = "1000 ha") +
+    scale_x_continuous(breaks = seq(min(agri_land$Year), max(agri_land$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+  
+  macro_plot <- macro_value %>%
+    filter(Country == country) %>%
+    ggplot(aes(x = Year, y = Value)) +
+    geom_line(color = "steelblue", size = 1.2) +
+    labs(title = paste(country, "- Value US$, 2015 prices"),
+         x = "Year",
+         y = "Million USD (2015 prices)") +
+    scale_x_continuous(breaks = seq(min(macro_value$Year), max(macro_value$Year), by = 5)) +
+    scale_y_continuous(labels = label_comma()) +
+    theme_minimal(base_size = 12)
+  
+  # Combine side-by-side
+  combined_plot <- land_plot + macro_plot
+  print(combined_plot)
+}
+```
+```{r, fig.width=14, fig.height=6}
+# --- filters ---
+agri_land <- data1 %>%
+  filter(Item == "Agricultural land", Element == "Area")
+
+macro_value <- data2 %>%
+  filter(Element == "Value US$, 2015 prices")
+
+ratio_usd <- data2 %>%
+  filter(Element == "Ratio of Value Added (Agriculture, Forestry and Fishing) US$")   # (code 6163)
+
+# Intersect countries that have all three datasets
+common_countries <- Reduce(intersect, list(unique(agri_land$Country),
+                                           unique(macro_value$Country),
+                                           unique(ratio_usd$Country))) |> sort()
+
+# Loop for three plots per country
+for (country in common_countries) {
+
+  land_df <- agri_land %>% filter(Country == country)
+  macro_df <- macro_value %>% filter(Country == country)
+  ratio_df <- ratio_usd %>% filter(Country == country)
+
+  p_land <- ggplot(land_df, aes(Year, Value)) +
+    geom_line(color = "sienna", linewidth = 1.1) +
+    scale_x_continuous(breaks = seq(min(land_df$Year), max(land_df$Year), by = 5)) +
+    labs(title = paste(country, "— Agricultural Land"),
+         x = "Year", y = "Area (1000 ha)") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  p_macro <- ggplot(macro_df, aes(Year, Value)) +
+    geom_line(color = "steelblue", linewidth = 1.1) +
+    scale_x_continuous(breaks = seq(min(macro_df$Year), max(macro_df$Year), by = 5)) +
+    scale_y_continuous(labels = label_comma()) +
+    labs(title = paste(country, "— Value US$, 2015 prices"),
+         x = "Year", y = "Million USD (2015)") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  p_ratio <- ggplot(ratio_df, aes(Year, Value)) +
+    geom_line(color = "forestgreen", linewidth = 1.1) +
+    scale_x_continuous(breaks = seq(min(ratio_df$Year), max(ratio_df$Year), by = 5)) +
+    scale_y_continuous(labels = label_percent(scale = 1)) +
+    labs(title = paste(country, "— Ratio of Value Added (Ag/For/Fish), US$"),
+         x = "Year", y = "Share of Economy (%)") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+  print(p_land | p_macro | p_ratio)
+}
+```
+
+```{r}
+#Cropland area under conventional tillage
+conventional_land <- data1 %>%
+  filter(Item == "Cropland area under conventional tillage")
+
+# Loop through and plot each country
+for (country in valid_countries) {
+  country_data <- conventional_land %>%
+    filter(Country == country)
+  
+  # Skip if empty (safety check)
+  if (nrow(country_data) == 0) next
+  
+  # Create the plot
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "sienna", size = 1.2) +
+    labs(
+      title = paste("Conservational Tillage -", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+
+```{r}
+#Cropland area under conservation tillage
+conservation_land <- data1 %>%
+  filter(Item == "Cropland area under conservation tillage")
+
+# Loop through and plot each country
+for (country in valid_countries) {
+  country_data <- conservation_land %>%
+    filter(Country == country)
+  
+  # Skip if empty (safety check)
+  if (nrow(country_data) == 0) next
+  
+  # Create the plot
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "sienna", size = 1.2) +
+    labs(
+      title = paste("Conservation Tillage -", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+
+```{r}
+#Cropland area under zero or no tillage
+no_tillage <- data1 %>%
+  filter(Item == "Cropland area under zero or no tillage")
+
+# Loop through and plot each country
+for (country in valid_countries) {
+  country_data <- no_tillage %>%
+    filter(Country == country)
+  
+  # Skip if empty (safety check)
+  if (nrow(country_data) == 0) next
+  
+  # Create the plot
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "sienna", size = 1.2) +
+    labs(
+      title = paste("No Tillage -", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+
+```{r}
+#Cropland area under protective cover
+protective_cover <- data1 %>%
+  filter(Item == "Cropland area under protective cover")
+
+# Loop through and plot each country
+for (country in valid_countries) {
+  country_data <- protective_cover %>%
+    filter(Country == country)
+  
+  # Skip if empty (safety check)
+  if (nrow(country_data) == 0) next
+  
+  # Create the plot
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "sienna", size = 1.2) +
+    labs(
+      title = paste("Protective Cover -", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+
+```{r}
+#slopes <- agri_data %>%
+  #group_by(Country) %>%
+  #do({
+   # model <- lm(Value ~ Year, data = .)
+    #slope <- coef(model)[["Year"]]
+    #data.frame(Slope = slope)
+  #})
+
+#slopes <- slopes %>%
+  #mutate(Trend = case_when(
+    #Slope > 0 ~ "Increasing",
+    #Slope < 0 ~ "Decreasing",
+    #TRUE ~ "Stable"
+  #))
+
+#ggplot(data_with_trend %>% distinct(Country, .keep_all = TRUE),
+ #      aes(map_id = Country, fill = Trend)) +
+  #geom_map(map = world_map) +
+  #expand_limits(x = world_map$long, y = world_map$lat) +
+  #scale_fill_manual(values = c("Increasing" = "blue", "Decreasing" = "red", "Stable" = "grey"))
+```
+```{r}
+library(countrycode)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(sf)
+library(janitor)
+
+slopes <- agri_data %>%
+  filter(Region %in% c("SouthAmerica", "CentralNorthAmerica", "Caribbean")) %>%
+  group_by(Country, Region) %>%
+  do({
+    model <- lm(Value ~ Year, data = .)
+    slope <- coef(model)[["Year"]]
+    data.frame(Slope = slope)
+  }) %>%
+  ungroup() %>%
+  mutate(Trend = case_when(
+    Slope > 0 ~ "Increasing",
+    Slope < 0 ~ "Decreasing",
+    TRUE ~ "Stable"
+  ))
+
+world_sf <- ne_countries(scale = "medium", returnclass = "sf")
+
+# keep only Americas
+americas_sf <- world_sf %>%
+  filter(subregion %in% c("South America", "Central America", "Caribbean", "North America"))
+
+slopes <- slopes %>% 
+  mutate(Country_clean = tolower(Country))
+
+americas_sf <- americas_sf %>% 
+  mutate(Country_clean = tolower(admin))
+
+# join trend data to map
+map_data <- americas_sf %>%
+  left_join(slopes, by = "Country_clean")
+
+ggplot(map_data) +
+  geom_sf(aes(fill = Trend)) +
+  scale_fill_manual(values = c("Increasing" = "blue", "Decreasing" = "red", "Stable" = "grey")) +
+  labs(title = "Agricultural Land Trends in the Americas (1961–2023)",
+       fill = "Trend")
+
+final_tableau <- slopes %>% 
+  filter(Region %in% c("SouthAmerica", "CentralNorthAmerica", "Caribbean")) %>%
+  select(Country, Slope, Trend, Region)
+write.csv(final_tableau, "agri_trends.csv", row.names = FALSE)
+```
+```{r}
+forest_data <- data1 %>%
+  filter(Item == "Naturally regenerating forest", Element == "Area")
+
+forest_countries <- sort(unique(forest_data$Country))
+
+for (country in forest_countries) {
+  country_data <- forest_data %>% filter(Country == country)
+  if (nrow(country_data) == 0) next
+  
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "seagreen4", linewidth = 1.2) +
+    labs(
+      title = paste("Naturally Regenerating Forest in", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+  
+  print(p)
+}
+```
+
+```{r}
+forest_land <- data1 %>%
+  filter(Item == "Forest land", Element == "Area")
+
+forest_countrys <- sort(unique(forest_land$Country))
+
+for (country in forest_countrys) {
+  country_data <- forest_land %>% filter(Country == country)
+  if (nrow(country_data) < 2) next  # skip if not enough points
+
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "darkgreen", size = 1.2) +
+    labs(
+      title = paste("Forest Land in", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+```{r}
+planted_land <- data1 %>%
+  filter(Item == "Planted Forest", Element == "Area")
+
+planted_countrys <- sort(unique(planted_land$Country))
+
+for (country in planted_countrys) {
+  country_data <- planted_land %>% filter(Country == country)
+  if (nrow(country_data) < 2) next  # skip if not enough points
+
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "darkgreen", size = 1.2) +
+    labs(
+      title = paste("Planted Forest Land in", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+```{r}
+primary_land <- data1 %>%
+  filter(Item == "Primary Forest", Element == "Area")
+
+primary_countrys <- sort(unique(primary_land$Country))
+
+for (country in primary_countrys) {
+  country_data <- primary_land %>% filter(Country == country)
+  if (nrow(country_data) < 2) next  # skip if not enough points
+
+  p <- ggplot(country_data, aes(x = Year, y = Value)) +
+    geom_line(color = "darkgreen", size = 1.2) +
+    labs(
+      title = paste("Primary Forest Land in", country),
+      x = "Year",
+      y = "Area (1000 ha)"
+    ) +
+    scale_x_continuous(breaks = seq(min(country_data$Year), max(country_data$Year), by = 5)) +
+    theme_minimal(base_size = 12)
+
+  print(p)
+}
+```
+
+
+```{r}
+library(countrycode)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(sf)
+library(janitor)
+
+forest_slopes <- forest_land %>%
+  filter(Region %in% c("SouthAmerica", "CentralNorthAmerica", "Caribbean")) %>%
+  group_by(Country, Region) %>%
+  do({
+    model <- lm(Value ~ Year, data = .)
+    slope <- coef(model)[["Year"]]
+    data.frame(Slope = slope)
+  }) %>%
+  ungroup() %>%
+  mutate(Trend = case_when(
+    Slope > 0 ~ "Increasing",
+    Slope < 0 ~ "Decreasing",
+    TRUE ~ "Stable"
+  ))
+
+world_sf <- ne_countries(scale = "medium", returnclass = "sf")
+
+# keep only Americas
+americas_sf <- world_sf %>%
+  filter(subregion %in% c("South America", "Central America", "Caribbean", "North America"))
+
+forest_slopes <- forest_slopes %>% 
+  mutate(Country_clean = tolower(Country))
+
+americas_sf <- americas_sf %>% 
+  mutate(Country_clean = tolower(admin))
+
+# join trend data to map
+map_data <- americas_sf %>%
+  left_join(slopes, by = "Country_clean")
+
+ggplot(map_data) +
+  geom_sf(aes(fill = Trend)) +
+  scale_fill_manual(values = c("Increasing" = "blue", "Decreasing" = "red", "Stable" = "grey")) +
+  labs(title = "Forest Land Trends in the Americas (1961–2023)",
+       fill = "Trend")
+
+final_tableau <- forest_slopes %>% 
+  filter(Region %in% c("SouthAmerica", "CentralNorthAmerica", "Caribbean")) %>%
+  select(Country, Slope, Trend, Region)
+write.csv(final_tableau, "forest_trends.csv", row.names = FALSE)
+```
+
